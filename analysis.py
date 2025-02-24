@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from sklearn.metrics.pairwise import cosine_distances
+from sklearn.metrics import pairwise_distances
 
 def aggregate_sum(dataframe, new_col_row_name, subregion_array):
     ret_df = dataframe.copy()
@@ -59,7 +61,7 @@ def analyze_data(file_path, columns):
     stats = df[columns].describe().to_string()
     return f"Summary Statistics:\n{stats}"
 
-def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=2):
+def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=3):
     # dataframes representing connections FROM rows to columns (outgoing connections)
     df_from_ROI = df[df.index.isin(ROI_list)]
 
@@ -68,25 +70,48 @@ def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=2):
     df_to_ROI = df_to[df_to.index.isin(ROI_list)]
 
     # drop ROI columns
-    # from - outgoing
+    # from (outgoing)
     df_from_ROI = df_from_ROI.drop(ROI_list, axis=1)
 
-    # to - incoming
+    # to (incoming)
     df_to_ROI = df_to_ROI.drop(ROI_list, axis=1)
 
     # filter dataframes if filter flag is passed
     if filter_flag:
-        df_from_ROI = df_from_ROI.loc[:,df_from_ROI.apply(np.count_nonzero, axis=0) >=3]
-        df_to_ROI = df_to_ROI.loc[:,df_to_ROI.apply(np.count_nonzero, axis=0) >=3]
+        df_from_ROI = df_from_ROI.loc[:,df_from_ROI.apply(np.count_nonzero, axis=0) >= min_num_connections]
+        df_to_ROI = df_to_ROI.loc[:,df_to_ROI.apply(np.count_nonzero, axis=0) >= min_num_connections]
 
     # create RSA matrix for incoming connections and outgoing connections
-    rsa_mat_to_ROI = df_to_ROI.corr()
-    rsa_mat_from_ROI = df_from_ROI.corr()
+    rsa_mat_to_ROI = compute_distance_matrix(df_to_ROI, metric='pearson')
+    rsa_mat_from_ROI = compute_distance_matrix(df_from_ROI, metric='pearson')
 
     # return tuple of rsa matrices. 
     # 1st represents representational similarity between regions that have incoming connections to ROI
     # 2nd represents representational similarity between regions that recieve outgoing connections from ROI
     return (rsa_mat_to_ROI, rsa_mat_from_ROI)
+
+def compute_distance_matrix(df, metric="pearson"):
+    # compute distance matrix
+    if metric == "cosine":
+        # using cosine distances
+        cosine_distance_matrix = cosine_distances(df.T)
+        cosine_distance_df = pd.DataFrame(cosine_distance_matrix, index=df.columns, columns=df.columns)
+        return cosine_distance_df
+    elif metric == "braycurtis":
+        # using bray-curtis
+        distance_matrix_bc = pairwise_distances(df.T, metric='braycurtis')
+        bc_distance_df = pd.DataFrame(distance_matrix_bc, index=df.columns, columns=df.columns)
+        return bc_distance_df
+    elif metric == "pearson":
+        # using pearson correlation
+        distance_matrix = pd.DataFrame(1 - df.corr(), index=df.columns, columns=df.columns)
+        return distance_matrix
+    elif metric == "spearman":
+        distance_matrix = pd.DataFrame(1 - df.corr(method='spearman'), index=df.columns, columns=df.columns)
+        return distance_matrix
+    else:
+        distance_matrix = pd.DataFrame(1 - df.corr(), index=df.columns, columns=df.columns)
+        return distance_matrix
 
 def visualize_rsa(corr_matrix, output_file, file_format="svg", figsize=(20,20), fig_title="RSA"):
     # plot heatmap of rsa using pearson correlation

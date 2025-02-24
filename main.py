@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication
+from qtpy.QtWidgets import QApplication
 from gui import DataAnalysisApp
 import sys
 
