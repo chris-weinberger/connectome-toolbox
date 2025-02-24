@@ -8,13 +8,15 @@ from qtpy.QtWidgets import (
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+
 import seaborn as sns
 from analysis import build_corr_matrix  # Assuming this is your analysis function
 
 class DataAnalysisApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Data Analysis App")
+        self.setWindowTitle("Anatomical Representational Similarity of Neural Data")
         self.setGeometry(100, 100, 600, 400)
 
         self.layout = QVBoxLayout()
@@ -65,7 +67,7 @@ class DataAnalysisApp(QWidget):
             
             self.uploaded_data = df
 
-            preview_df = df.head(5)
+            preview_df = df.head(10)
             self.display_table(preview_df)
             self.table_widget.setVisible(True)
 
@@ -100,58 +102,38 @@ class DataAnalysisApp(QWidget):
             self.result_text.setText(f"Error: {str(e)}")
 
     def show_plot(self, to_matrix, from_matrix):
-        plot_window_to_plot = PlotWindow(self, display_data=to_matrix)
+        self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, window_title="To Matrix")
+        self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, window_title="From Matrix")
 
-        plot_window_from_plot = PlotWindow(self, display_data=from_matrix)
-
-        # TO DO: Pass the data to the plot window for display -- test this
-        plot_window_to_plot.show(title = "To Matrix")
-        plot_window_from_plot.show(title = "From Matrix")
+        self.plot_window_to_plot.show()
+        self.plot_window_from_plot.show()
 
 class PlotWindow(QDialog):
-    def __init__(self, parent=None, display_data=None):
+    def __init__(self, parent=None, display_data=None, window_title="Analysis Plot"):
         super().__init__(parent)
-        self.setWindowTitle("Analysis Plot")
-        self.setGeometry(200, 200, 600, 400)
+        self.setWindowTitle(window_title)
+        self.setGeometry(200, 200, 800, 600)
 
-        self.layout = QHBoxLayout(self)
+        self.layout = QVBoxLayout(self)
 
-        self.figure = plt.Figure(figsize=(6, 4), dpi=100)
+        self.figure = plt.Figure(figsize=(4, 4), dpi=100)
         self.canvas = FigureCanvas(self.figure)
+
+        # Add the Matplotlib toolbar for navigation (zoom, pan, save)
+        self.toolbar = NavigationToolbar(self.canvas, self)  # Pass self for parent
 
         self.data = display_data
 
-        ax = self.figure.add_subplot(111)
-        #  Important: Replace this example plot with your actual data from analyze_data
-        try:
-            # Assuming analyze_data returns a matplotlib figure or data suitable for plotting
-            if isinstance(results, plt.Figure): # If analyze_data already returns a figure
-                self.figure = results # Use the returned figure
-                self.canvas = FigureCanvas(self.figure) # Update the canvas
-                ax = self.figure.axes[0] if self.figure.axes else self.figure.add_subplot(111) # Get or create axes
-
-            elif isinstance(results, tuple) and len(results) == 2:  # If it returns (x, y) data
-                x, y = results
-                ax.plot(x, y)
-                ax.set_title("Analysis Plot")
-            elif isinstance(results, pd.DataFrame): # If it returns a dataframe
-                results.plot(ax=ax)
-                ax.set_title("Analysis Plot")
-
-            else:  # Handle other potential return types and create a default plot if needed
-                ax.plot([1, 2, 3, 4, 5], [5, 4, 3, 2, 1])  # Example plot
-                ax.set_title("Sample Plot")
-
-        except Exception as e:
-            ax.plot([1, 2, 3, 4, 5], [5, 4, 3, 2, 1])  # Example plot
-            ax.set_title(f"Error Plotting: {e}")
-
+        self.layout.addWidget(self.toolbar)
         self.layout.addWidget(self.canvas)
         self.canvas.draw()
 
-    def show_plot(self, title="Analysis Plot"):
-        plt.figure(figsize=(20, 20))
-        sns.heatmap(self.data, fmt=".2f", cbar=True, square=True, xticklabels=True, yticklabels=True)
-        plt.title(title)
-        plt.tight_layout()
-        plt.show()
+        self.plot_data()  # Call plotting function
+
+    def plot_data(self):
+
+        ax = self.figure.add_subplot(111)  # Create a subplot
+        sns.heatmap(self.data, fmt=".2f", cbar=True, square=True, xticklabels=True, yticklabels=True, ax=ax)
+        ax.set_title("Representational Similarity Analysis in Connectivity Patterns")
+
+        self.canvas.draw()
