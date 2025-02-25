@@ -149,6 +149,6 @@ class PlotWindow(QDialog):
 
         ax = self.figure.add_subplot(111)  # Create a subplot
         sns.heatmap(self.data, fmt=".2f", cbar=True, square=True, xticklabels=True, yticklabels=True, ax=ax)
-        ax.set_title("Representational Similarity Analysis in Connectivity Patterns")
+        ax.set_title("Representational Dissimilarity in Connectivity Patterns")
 
         self.canvas.draw()
