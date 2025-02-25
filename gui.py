@@ -3,7 +3,7 @@
 # The results will be displayed in a text area, and a plot will be shown in a separate window.
 from qtpy.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QTextEdit, QTableWidget,
-    QTableWidgetItem, QDialog, QHBoxLayout
+    QTableWidgetItem, QDialog, QComboBox
 )
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -30,6 +30,15 @@ class DataAnalysisApp(QWidget):
         self.column_input.setPlaceholderText("Enter column name(s) separated by commas to aggregate into RSA region")
         self.layout.addWidget(self.column_input)
 
+        # Dropdown (QComboBox)
+        self.distance_metric = "pearson"  # Default value
+        self.metric_dropdown = QComboBox()
+        self.metric_dropdown.addItems(["pearson", "spearman", "cosine", "braycurtis"])  # Add your options
+        # Connect to a function when the selection is changed
+        self.metric_dropdown.currentIndexChanged.connect(self.metric_dropdown_selection_changed)
+        self.layout.addWidget(self.metric_dropdown)
+
+
         self.analyze_button = QPushButton("Compute RSA on connections to/from specified regions")
         self.analyze_button.clicked.connect(self.run_analysis)
         self.layout.addWidget(self.analyze_button)
@@ -47,6 +56,12 @@ class DataAnalysisApp(QWidget):
 
         self.setLayout(self.layout)
         self.file_path = ""
+
+    def metric_dropdown_selection_changed(self, index):
+        selected_option = self.metric_dropdown.itemText(index)
+        print(f"Selected option: {selected_option}")  # Or do something else with the selection
+        # You can use the selected_option to change the plot or other aspects of your application
+        self.distance_metric = selected_option
 
     def load_file(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls)")
@@ -95,7 +110,7 @@ class DataAnalysisApp(QWidget):
         columns = [col.strip() for col in columns]
 
         try:
-            (to_matrix, from_matrix) = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3)
+            (to_matrix, from_matrix) = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
             self.show_plot(to_matrix, from_matrix)
 
         except Exception as e:

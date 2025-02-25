@@ -3,42 +3,6 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_distances
 from sklearn.metrics import pairwise_distances
 
-def aggregate_sum(dataframe, new_col_row_name, subregion_array):
-    ret_df = dataframe.copy()
-    row_sum = ret_df[ret_df.index.isin(subregion_array)].sum(axis=0)
-    ret_df.loc[new_col_row_name] = row_sum
-    
-    # delete extra DHA subregions from rows
-    ret_df = ret_df.loc[
-    ~ret_df.index.isin(subregion_array)
-    ]
-    
-    # columns
-    col_sum = ret_df[subregion_array].sum(axis=1)
-    ret_df.loc[:,new_col_row_name] = col_sum
-    
-    # delete extra LHA subregion from columns
-    ret_df = ret_df.drop(subregion_array, axis=1)
-    return ret_df
-
-def aggregate_average(dataframe, new_col_row_name, subregion_array):
-    ret_df = dataframe.copy()
-    row_sum = ret_df[ret_df.index.isin(subregion_array)].mean(axis=0)
-    ret_df.loc[new_col_row_name] = row_sum
-    
-    # delete extra DHA subregions from rows
-    ret_df = ret_df.loc[
-    ~ret_df.index.isin(subregion_array)
-    ]
-    
-    # columns
-    col_sum = ret_df[subregion_array].mean(axis=1)
-    ret_df.loc[:,new_col_row_name] = col_sum
-    
-    # delete extra LHA subregion from columns
-    ret_df = ret_df.drop(subregion_array, axis=1)
-    return ret_df
-
 
 def remove_self_connections(df):
     for i in range(len(df.index)):
@@ -61,7 +25,7 @@ def analyze_data(file_path, columns):
     stats = df[columns].describe().to_string()
     return f"Summary Statistics:\n{stats}"
 
-def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=3):
+def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=3, distance_metric='pearson'):
     # dataframes representing connections FROM rows to columns (outgoing connections)
     df_from_ROI = df[df.index.isin(ROI_list)]
 
@@ -82,8 +46,8 @@ def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=3):
         df_to_ROI = df_to_ROI.loc[:,df_to_ROI.apply(np.count_nonzero, axis=0) >= min_num_connections]
 
     # create RSA matrix for incoming connections and outgoing connections
-    rsa_mat_to_ROI = compute_distance_matrix(df_to_ROI, metric='pearson')
-    rsa_mat_from_ROI = compute_distance_matrix(df_from_ROI, metric='pearson')
+    rsa_mat_to_ROI = compute_distance_matrix(df_to_ROI, metric=distance_metric)
+    rsa_mat_from_ROI = compute_distance_matrix(df_from_ROI, metric=distance_metric)
 
     # return tuple of rsa matrices. 
     # 1st represents representational similarity between regions that have incoming connections to ROI
