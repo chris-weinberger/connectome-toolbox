@@ -11,7 +11,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 import seaborn as sns
-from analysis import build_corr_matrix  # Assuming this is your analysis function
+from analysis import build_corr_matrix, compute_mds  # Assuming this is your analysis function
 
 class DataAnalysisApp(QWidget):
     def __init__(self):
@@ -38,10 +38,17 @@ class DataAnalysisApp(QWidget):
         self.metric_dropdown.currentIndexChanged.connect(self.metric_dropdown_selection_changed)
         self.layout.addWidget(self.metric_dropdown)
 
-
+        # Add button to run RSA analysis
         self.analyze_button = QPushButton("Compute RSA on connections to/from specified regions")
-        self.analyze_button.clicked.connect(self.run_analysis)
+        self.analyze_button.clicked.connect(self.run_rsa)
         self.layout.addWidget(self.analyze_button)
+        self.rsa_data = None
+
+        # Add a button to run MDS analysis
+        self.mds_button = QPushButton("Run MDS Analysis")
+        self.mds_button.clicked.connect(self.run_mds)
+        self.layout.addWidget(self.mds_button)
+        self.mds_button.setVisible(False)  # Initially hidden
 
         # Table Widget for Data Preview (Initially Hidden)
         self.table_widget = QTableWidget()
@@ -101,7 +108,7 @@ class DataAnalysisApp(QWidget):
 
         self.table_widget.resizeColumnsToContents()
 
-    def run_analysis(self):
+    def run_rsa(self):
         if not self.file_path:
             self.result_text.setText("Please upload a file first.")
             return
@@ -112,19 +119,37 @@ class DataAnalysisApp(QWidget):
         try:
             (to_matrix, from_matrix) = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
             self.show_plot(to_matrix, from_matrix)
+            self.rsa_data = (to_matrix, from_matrix)
+            self.mds_button.setVisible(True) # Show the MDS button
 
         except Exception as e:
             self.result_text.setText(f"Error: {str(e)}")
 
-    def show_plot(self, to_matrix, from_matrix):
-        self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, window_title="To Matrix")
-        self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, window_title="From Matrix")
+    def run_mds(self):
+        self.result_text.setText("Running MDS analysis...")
+        to_matrix = self.rsa_data[0]
+        from_matrix = self.rsa_data[1]
+        self.result_text.setText("got the matrices extracted")
+        try:
+            mds_result_to = compute_mds(to_matrix)
+            mds_result_from = compute_mds(from_matrix)
+            self.show_plot(mds_result_to, mds_result_from, 'MDS')
 
-        self.plot_window_to_plot.show()
-        self.plot_window_from_plot.show()
+        except Exception as e:
+            self.result_text.setText(f"Error in run_mds: {str(e)}")
+
+    def show_plot(self, to_matrix, from_matrix, viz_type='RSA'):
+        try:
+            self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, viz_type=viz_type, window_title="To Matrix")
+            self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, viz_type=viz_type, window_title="From Matrix")
+
+            self.plot_window_to_plot.show()
+            self.plot_window_from_plot.show()
+        except Exception as e:
+            self.result_text.setText(f"Error in show_plot: {str(e)}")
 
 class PlotWindow(QDialog):
-    def __init__(self, parent=None, display_data=None, window_title="Analysis Plot"):
+    def __init__(self, parent=None, display_data=None, viz_type='RSA', window_title="Analysis Plot"):
         super().__init__(parent)
         self.setWindowTitle(window_title)
         self.setGeometry(200, 200, 800, 600)
@@ -143,12 +168,32 @@ class PlotWindow(QDialog):
         self.layout.addWidget(self.canvas)
         self.canvas.draw()
 
-        self.plot_data()  # Call plotting function
+        if viz_type == 'RSA':
+            self.plot_rsa_data()
+        elif viz_type == 'MDS':
+            self.plot_mds_data()
+        else:
+            raise ValueError("Invalid visualization type")
 
-    def plot_data(self):
+    def plot_rsa_data(self):
 
         ax = self.figure.add_subplot(111)  # Create a subplot
         sns.heatmap(self.data, fmt=".2f", cbar=True, square=True, xticklabels=True, yticklabels=True, ax=ax)
         ax.set_title("Representational Dissimilarity in Connectivity Patterns")
 
         self.canvas.draw()
+
+    def plot_mds_data(self):
+        ax = self.figure.add_subplot(111)  # Create a subplot
+        sns.scatterplot(
+            x='Dim1', y='Dim2', 
+            data=self.data, 
+            ax=ax,
+            s=100,
+            marker='o',
+            color='red'
+        )
+
+        ax.set_title("Representational Dissimilarity in Connectivity Patterns")
+        for label, (x, y) in self.data.iterrows():
+            ax.text(x, y, label, fontsize=12, ha='right', va='center')

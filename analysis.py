@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_distances
 from sklearn.metrics import pairwise_distances
+from sklearn.manifold import MDS
 
 
+ 
 def remove_self_connections(df):
     for i in range(len(df.index)):
         df.iloc[i,i] = 0
@@ -77,6 +79,17 @@ def compute_distance_matrix(df, metric="pearson"):
         distance_matrix = pd.DataFrame(1 - df.corr(), index=df.columns, columns=df.columns)
         return distance_matrix
 
+def compute_mds(rsa_matrix, n_components=2):
+    #MDS requires dissimilarity matrix
+    # Perform MDS
+    mds = MDS(n_components=n_components, dissimilarity='precomputed', random_state=42)
+    embedding = mds.fit_transform(rsa_matrix)
+
+    # Create a DataFrame for the results
+    mds_result = pd.DataFrame(embedding, columns=['Dim1', 'Dim2'], index=rsa_matrix.index)
+
+    return mds_result
+
 def visualize_rsa(corr_matrix, output_file, file_format="svg", figsize=(20,20), fig_title="RSA"):
     # plot heatmap of rsa using pearson correlation
     plt.figure(figsize=(20, 20))
@@ -90,7 +103,19 @@ def visualize_rsa(corr_matrix, output_file, file_format="svg", figsize=(20,20), 
     # Show the plot
     plt.show()
     
-    
+def visualize_mds(mds_result, output_file, file_format="svg", figsize=(20,20), fig_title="MDS"):
+
+
+
+    plt.figure(figsize=(10, 8))
+    sns.scatterplot(
+        x='Dim1', y='Dim2', 
+        data=mds_results, 
+        hue='Group',  # Group coloring
+        palette={'Cortical': 'red', 'Hypothalamus':'blue', 'Amygdala': 'purple', "Septal Striatum": 'pink','Other': 'green'}, 
+        s=100, 
+        marker='o'
+    )
 
 
 
