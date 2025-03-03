@@ -27,7 +27,16 @@ def analyze_data(file_path, columns):
     stats = df[columns].describe().to_string()
     return f"Summary Statistics:\n{stats}"
 
+def build_corr_matrix_full(df, distance_metric='pearson'):
+    return compute_distance_matrix(df, metric=distance_metric)
+
+    
+
 def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=3, distance_metric='pearson'):
+    # if they haven't supplied columns, just perform RSA on all columns
+    if (len(ROI_list) == 0):
+        rsa_mat = compute_distance_matrix(df, metric=distance_metric)
+        return (rsa_mat, rsa_mat)
     # dataframes representing connections FROM rows to columns (outgoing connections)
     df_from_ROI = df[df.index.isin(ROI_list)]
 

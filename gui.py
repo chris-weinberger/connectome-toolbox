@@ -11,7 +11,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 import seaborn as sns
-from analysis import build_corr_matrix, compute_mds  # Assuming this is your analysis function
+from analysis import build_corr_matrix, build_corr_matrix_full, compute_mds  # Assuming this is your analysis function
 
 class DataAnalysisApp(QWidget):
     def __init__(self):
@@ -23,7 +23,7 @@ class DataAnalysisApp(QWidget):
 
         self.uploaded_data = None
         self.upload_button = QPushButton("Upload CSV File")
-        self.upload_button.clicked.connect(self.load_file)
+        self.upload_button.clicked.connect(self.load_data)
         self.layout.addWidget(self.upload_button)
 
         self.column_input = QLineEdit(self)
@@ -63,6 +63,41 @@ class DataAnalysisApp(QWidget):
 
         self.setLayout(self.layout)
         self.file_path = ""
+
+
+    # IN DEVELOPMENT
+    def load_data(self, matrix_csv_path, region_names=None):
+        """
+        Imports a CSV file into a pandas DataFrame and numbers the rows and columns.
+
+        Args:
+            matrix_csv_path (str): Path to the CSV file containing the matrix data.
+
+        Returns:
+            pandas.DataFrame: A pandas DataFrame containing the matrix data with numbered rows and columns.
+        """
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls)")
+        if file_path:
+            self.file_path = file_path
+            self.result_text.setText(f"Loaded file: {file_path}")
+            self.preview_data(file_path)
+        df = pd.read_csv(matrix_csv_path)  # Read without header
+
+        if region_names is not None:
+            # process region names for index and column
+            df.index = region_names
+            df.columns = region_names
+        else:
+            df.index = range(1, len(df) + 1)  # Number the rows
+            df.columns = range(1, len(df.columns) + 1)  # Number the columns
+
+        self.result_text.setText(f"Loaded matrix data from: {df.index}")
+        self.uploaded_data = df
+
+        preview_df = df.head(10)
+        self.display_table(preview_df)
+        self.table_widget.setVisible(True)
+
 
     def metric_dropdown_selection_changed(self, index):
         selected_option = self.metric_dropdown.itemText(index)
@@ -112,15 +147,20 @@ class DataAnalysisApp(QWidget):
         if not self.file_path:
             self.result_text.setText("Please upload a file first.")
             return
-
-        columns = self.column_input.text().split(",")
-        columns = [col.strip() for col in columns]
-
         try:
-            (to_matrix, from_matrix) = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
-            self.show_plot(to_matrix, from_matrix)
-            self.rsa_data = (to_matrix, from_matrix)
-            self.mds_button.setVisible(True) # Show the MDS button
+            if self.column_input.text() == "":
+                self.rsa_data = build_corr_matrix_full(self.uploaded_data, distance_metric=self.distance_metric)
+                self.show_plot(viz_type='RSA')
+            else:
+                # Split the input text by commas and remove any leading/trailing whitespace
+                columns = self.column_input.text().split(",")
+                columns = [col.strip() for col in columns]
+                
+                # define RSA matrices for incoming and outgoing connections
+                self.rsa_data = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
+                self.show_plot(viz_type='RSA')
+                
+                self.mds_button.setVisible(True) # Show the MDS button
 
         except Exception as e:
             self.result_text.setText(f"Error: {str(e)}")
@@ -136,17 +176,27 @@ class DataAnalysisApp(QWidget):
             self.show_plot(mds_result_to, mds_result_from, 'MDS')
 
         except Exception as e:
-            self.result_text.setText(f"Error in run_mds: {str(e)}")
+            self.result_text.setText(f"Error: {str(e)}")
 
-    def show_plot(self, to_matrix, from_matrix, viz_type='RSA'):
+    def show_plot(self, viz_type='RSA'):
         try:
-            self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, viz_type=viz_type, window_title="To Matrix")
-            self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, viz_type=viz_type, window_title="From Matrix")
+            # if they haven't entered any columns, just run RSA on the full matrix and display that
+            if (self.column_input.text() == ""):
+                rsa_data = self.rsa_data
+                self.plot_window_rsa = PlotWindow(self, display_data=rsa_data, viz_type=viz_type)
+                self.plot_window_rsa.show()
+            else:
+                # get to_matrix and from_matrix from the tuple
+                to_matrix = self.rsa_data[0]
+                from_matrix = self.rsa_data[1]
 
-            self.plot_window_to_plot.show()
-            self.plot_window_from_plot.show()
+                self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, viz_type=viz_type, window_title="To Matrix")
+                self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, viz_type=viz_type, window_title="From Matrix")
+
+                self.plot_window_to_plot.show()
+                self.plot_window_from_plot.show()
         except Exception as e:
-            self.result_text.setText(f"Error in show_plot: {str(e)}")
+            self.result_text.setText(f"Error: {str(e)}")
 
 class PlotWindow(QDialog):
     def __init__(self, parent=None, display_data=None, viz_type='RSA', window_title="Analysis Plot"):
