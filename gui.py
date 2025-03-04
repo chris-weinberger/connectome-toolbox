@@ -66,7 +66,7 @@ class DataAnalysisApp(QWidget):
 
 
     # IN DEVELOPMENT
-    def load_data(self, matrix_csv_path, region_names=None):
+    def load_data(self, region_names=None):
         """
         Imports a CSV file into a pandas DataFrame and numbers the rows and columns.
 
@@ -79,20 +79,24 @@ class DataAnalysisApp(QWidget):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls)")
         if file_path:
             self.file_path = file_path
-            self.result_text.setText(f"Loaded file: {file_path}")
-            self.preview_data(file_path)
-        df = pd.read_csv(matrix_csv_path)  # Read without header
+            self.result_text.setText(f"Inside load_data, Loaded file: {file_path}")
 
-        if region_names is not None:
+        df = pd.read_csv(file_path, header=None)  # Read without header
+
+        # if region_names is not None:
+        if False:
             # process region names for index and column
             df.index = region_names
             df.columns = region_names
         else:
+            print("No region names provided. Numbering rows and columns.")
             df.index = range(1, len(df) + 1)  # Number the rows
             df.columns = range(1, len(df.columns) + 1)  # Number the columns
 
         self.result_text.setText(f"Loaded matrix data from: {df.index}")
         self.uploaded_data = df
+
+        print(df.columns)
 
         preview_df = df.head(10)
         self.display_table(preview_df)
@@ -134,7 +138,7 @@ class DataAnalysisApp(QWidget):
     def display_table(self, df):
         self.table_widget.setRowCount(df.shape[0])
         self.table_widget.setColumnCount(df.shape[1])
-        self.table_widget.setHorizontalHeaderLabels(df.columns)
+        self.table_widget.setHorizontalHeaderLabels(df.columns.astype(str))
         self.table_widget.setVerticalHeaderLabels(df.index.astype(str))
 
         for row in range(df.shape[0]):
@@ -155,7 +159,7 @@ class DataAnalysisApp(QWidget):
                 # Split the input text by commas and remove any leading/trailing whitespace
                 columns = self.column_input.text().split(",")
                 columns = [col.strip() for col in columns]
-                
+
                 # define RSA matrices for incoming and outgoing connections
                 self.rsa_data = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
                 self.show_plot(viz_type='RSA')
