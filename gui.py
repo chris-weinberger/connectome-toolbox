@@ -2,7 +2,7 @@
 # The GUI will allow users to upload a CSV file, specify columns to aggregate into a region of interest (RSA), and compute RSA on connections to/from specified regions.
 # The results will be displayed in a text area, and a plot will be shown in a separate window.
 from qtpy.QtWidgets import (
-    QWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QTextEdit, QTableWidget,
+    QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QFileDialog, QLineEdit, QTextEdit, QTableWidget,
     QTableWidgetItem, QDialog, QComboBox
 )
 import pandas as pd
@@ -21,10 +21,24 @@ class DataAnalysisApp(QWidget):
 
         self.layout = QVBoxLayout()
 
+        # Horizontal layout for the buttons
+        hbox_upload_buttons = QHBoxLayout()
+
         self.uploaded_data = None
-        self.upload_button = QPushButton("Upload CSV File")
+        self.upload_button = QPushButton("*REQUIRED* Upload connection matrix CSV File")
         self.upload_button.clicked.connect(self.load_data)
-        self.layout.addWidget(self.upload_button)
+
+        self.uploaded_cols = None
+        self.upload_columns_buttons = QPushButton("*OPTIONAL* Upload ROI column names")
+        self.upload_columns_buttons.clicked.connect(self.load_columns)
+        self.upload_columns_buttons.setEnabled(False) # can't upload columns until data is uploaded
+
+        # Add buttons to the horizontal layout
+        hbox_upload_buttons.addWidget(self.upload_button)
+        hbox_upload_buttons.addWidget(self.upload_columns_buttons)
+
+        # Add the horizontal layout to the main layout
+        self.layout.addLayout(hbox_upload_buttons)
 
         self.column_input = QLineEdit(self)
         self.column_input.setPlaceholderText("Enter column name(s) separated by commas to aggregate into RSA region")
@@ -93,14 +107,39 @@ class DataAnalysisApp(QWidget):
             df.index = range(1, len(df) + 1)  # Number the rows
             df.columns = range(1, len(df.columns) + 1)  # Number the columns
 
+            # convert to string so we can index
+            df.index = df.index.astype(str)
+            df.columns = df.columns.astype(str)
+
         self.result_text.setText(f"Loaded matrix data from: {df.index}")
         self.uploaded_data = df
 
-        print(df.columns)
-
         preview_df = df.head(10)
         self.display_table(preview_df)
+        self.upload_columns_buttons.setEnabled(True) # can't upload columns until data is uploaded
         self.table_widget.setVisible(True)
+
+    def load_columns(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls);;Text Files (*.txt)")
+        if file_path:
+            self.file_path = file_path
+            self.result_text.setText(f"Inside load_data, Loaded file: {file_path}")
+
+        try:
+            region_names = pd.read_csv(file_path, header=None).to_numpy().flatten()  # Read without header
+            self.uploaded_cols = region_names
+
+            self.result_text.setText(f"Loaded region names: {region_names}")
+
+            self.uploaded_data.index = region_names
+            self.uploaded_data.columns = region_names
+        except Exception as e:
+            self.result_text.setText(f"Error loading column file: {str(e)}")
+        
+        # refresh preview of data
+        preview_df = self.uploaded_data.head(10)
+        self.display_table(preview_df)
+
 
 
     def metric_dropdown_selection_changed(self, index):
