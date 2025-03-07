@@ -33,9 +33,15 @@ class DataAnalysisApp(QWidget):
         self.upload_columns_buttons.clicked.connect(self.load_columns)
         self.upload_columns_buttons.setEnabled(False) # can't upload columns until data is uploaded
 
+        self.uploaded_division_labels = None
+        self.upload_div_labels_buttons = QPushButton("*OPTIONAL* Upload Major Division Labels")
+        self.upload_div_labels_buttons.clicked.connect(self.load_columns)
+        self.upload_div_labels_buttons.setEnabled(False) # can't upload columns until data is uploaded
+
         # Add buttons to the horizontal layout
         hbox_upload_buttons.addWidget(self.upload_button)
         hbox_upload_buttons.addWidget(self.upload_columns_buttons)
+        hbox_upload_buttons.addWidget(self.upload_div_labels_buttons)
 
         # Add the horizontal layout to the main layout
         self.layout.addLayout(hbox_upload_buttons)
@@ -80,7 +86,7 @@ class DataAnalysisApp(QWidget):
 
 
     # IN DEVELOPMENT
-    def load_data(self, region_names=None):
+    def load_data(self):
         """
         Imports a CSV file into a pandas DataFrame and numbers the rows and columns.
 
@@ -97,19 +103,13 @@ class DataAnalysisApp(QWidget):
 
         df = pd.read_csv(file_path, header=None)  # Read without header
 
-        # if region_names is not None:
-        if False:
-            # process region names for index and column
-            df.index = region_names
-            df.columns = region_names
-        else:
-            print("No region names provided. Numbering rows and columns.")
-            df.index = range(1, len(df) + 1)  # Number the rows
-            df.columns = range(1, len(df.columns) + 1)  # Number the columns
+        # Number the rows and columns
+        df.index = range(1, len(df) + 1)  # Number the rows
+        df.columns = range(1, len(df.columns) + 1)  # Number the columns
 
-            # convert to string so we can index
-            df.index = df.index.astype(str)
-            df.columns = df.columns.astype(str)
+        # convert to string so we can index
+        df.index = df.index.astype(str)
+        df.columns = df.columns.astype(str)
 
         self.result_text.setText(f"Loaded matrix data from: {df.index}")
         self.uploaded_data = df
@@ -117,13 +117,14 @@ class DataAnalysisApp(QWidget):
         preview_df = df.head(10)
         self.display_table(preview_df)
         self.upload_columns_buttons.setEnabled(True) # can't upload columns until data is uploaded
+        self.upload_div_labels_buttons.setEnabled(True) # can't upload major divisions until data is uploaded
         self.table_widget.setVisible(True)
 
     def load_columns(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls);;Text Files (*.txt)")
         if file_path:
             self.file_path = file_path
-            self.result_text.setText(f"Inside load_data, Loaded file: {file_path}")
+            self.result_text.setText(f"Loaded file: {file_path}")
 
         try:
             region_names = pd.read_csv(file_path, header=None).to_numpy().flatten()  # Read without header
@@ -140,7 +141,19 @@ class DataAnalysisApp(QWidget):
         preview_df = self.uploaded_data.head(10)
         self.display_table(preview_df)
 
+    def load_div_labels(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls);;Text Files (*.txt)")
+        if file_path:
+            self.file_path = file_path
+            self.result_text.setText(f"Loaded file: {file_path}")
 
+        try:
+            major_div_labels = pd.read_csv(file_path, header=None).to_numpy().flatten()  # Read without header
+            self.uploaded_division_labels = major_div_labels
+            self.result_text.setText(f"Loaded major division labels: {major_div_labels}")
+        except Exception as e:
+            self.result_text.setText(f"Error loading major division labels file: {str(e)}")
+        
 
     def metric_dropdown_selection_changed(self, index):
         selected_option = self.metric_dropdown.itemText(index)

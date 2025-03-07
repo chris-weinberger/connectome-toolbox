@@ -93,7 +93,20 @@ def compute_distance_matrix(df, metric="pearson"):
         distance_matrix = distance_matrix.dropna(axis=0, how='all').dropna(axis=1, how='all')
         return distance_matrix
 
-def compute_mds(rsa_matrix, n_components=2):
+# TODO: Implement this function -- When to clean the data?
+def clean_correlation_matrix(df, major_division_labels):
+    # get rows with all NaNs
+    nan_rows = df.isna().all(axis=1)
+
+    # drop rows and columns with all NaNs
+    df_ret = df.dropna(axis=0, how='all').dropna(axis=1, how='all')
+
+    # drop major division labels corresponding to rows with all NaNs
+    major_division_labels_ret = major_division_labels[~nan_rows]
+
+    return (df_ret, major_division_labels_ret)
+
+def compute_mds(rsa_matrix, n_components=2, group_labels=None):
     #MDS requires dissimilarity matrix
     # Perform MDS
     mds = MDS(n_components=n_components, dissimilarity='precomputed', random_state=42)
@@ -102,21 +115,11 @@ def compute_mds(rsa_matrix, n_components=2):
     # Create a DataFrame for the results
     mds_result = pd.DataFrame(embedding, columns=['Dim1', 'Dim2'], index=rsa_matrix.index)
 
+    if group_labels is not None:
+        mds_result['Group'] = group_labels
+
     return mds_result
     
-def visualize_mds(mds_result, output_file, file_format="svg", figsize=(20,20), fig_title="MDS"):
-
-
-
-    plt.figure(figsize=(10, 8))
-    sns.scatterplot(
-        x='Dim1', y='Dim2', 
-        data=mds_results, 
-        hue='Group',  # Group coloring
-        palette={'Cortical': 'red', 'Hypothalamus':'blue', 'Amygdala': 'purple', "Septal Striatum": 'pink','Other': 'green'}, 
-        s=100, 
-        marker='o'
-    )
 
 
 
