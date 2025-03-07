@@ -66,26 +66,31 @@ def build_corr_matrix(df, ROI_list, filter_flag = False, min_num_connections=3, 
     return (rsa_mat_to_ROI, rsa_mat_from_ROI)
 
 def compute_distance_matrix(df, metric="pearson"):
-    # compute distance matrix
+    # compute distance matrix, drop rows and columns with all NaNs
     if metric == "cosine":
         # using cosine distances
         cosine_distance_matrix = cosine_distances(df.T)
         cosine_distance_df = pd.DataFrame(cosine_distance_matrix, index=df.columns, columns=df.columns)
+        cosine_distance_df = cosine_distance_df.dropna(axis=0, how='all').dropna(axis=1, how='all')
         return cosine_distance_df
     elif metric == "braycurtis":
         # using bray-curtis
         distance_matrix_bc = pairwise_distances(df.T, metric='braycurtis')
         bc_distance_df = pd.DataFrame(distance_matrix_bc, index=df.columns, columns=df.columns)
+        bc_distance_df = bc_distance_df.dropna(axis=0, how='all').dropna(axis=1, how='all')
         return bc_distance_df
     elif metric == "pearson":
         # using pearson correlation
         distance_matrix = pd.DataFrame(1 - df.corr(), index=df.columns, columns=df.columns)
+        distance_matrix = distance_matrix.dropna(axis=0, how='all').dropna(axis=1, how='all')
         return distance_matrix
     elif metric == "spearman":
         distance_matrix = pd.DataFrame(1 - df.corr(method='spearman'), index=df.columns, columns=df.columns)
+        distance_matrix = distance_matrix.dropna(axis=0, how='all').dropna(axis=1, how='all')
         return distance_matrix
     else:
         distance_matrix = pd.DataFrame(1 - df.corr(), index=df.columns, columns=df.columns)
+        distance_matrix = distance_matrix.dropna(axis=0, how='all').dropna(axis=1, how='all')
         return distance_matrix
 
 def compute_mds(rsa_matrix, n_components=2):
@@ -98,19 +103,6 @@ def compute_mds(rsa_matrix, n_components=2):
     mds_result = pd.DataFrame(embedding, columns=['Dim1', 'Dim2'], index=rsa_matrix.index)
 
     return mds_result
-
-def visualize_rsa(corr_matrix, output_file, file_format="svg", figsize=(20,20), fig_title="RSA"):
-    # plot heatmap of rsa using pearson correlation
-    plt.figure(figsize=(20, 20))
-    sns.heatmap(corr_matrix, fmt=".2f", cbar=True, square=True, xticklabels=True, yticklabels=True)
-    plt.title(fig_title)
-    plt.tight_layout()
-    
-    # Save the heatmap as an SVG file
-    plt.savefig(output_file, format=file_format)
-    
-    # Show the plot
-    plt.show()
     
 def visualize_mds(mds_result, output_file, file_format="svg", figsize=(20,20), fig_title="MDS"):
 
