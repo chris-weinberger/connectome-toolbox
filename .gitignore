@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+*.pyd
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+dist/
+build/
+develop-eggs/
+eggs/
+parts/
+wheels/
+.eggs-info/
+.tox/
+.cache/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+
+# Environments (if you are using virtual environments)
+.env
+.venv
+
+# Jupyter Notebook related files
+.ipynb_checkpoints
+
+# Log files
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Idea files
+.idea/
+
+#vscode files
+.vscode/
