@@ -161,12 +161,6 @@ class DataAnalysisApp(QWidget):
         # You can use the selected_option to change the plot or other aspects of your application
         self.distance_metric = selected_option
 
-    def load_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls)")
-        if file_path:
-            self.file_path = file_path
-            self.result_text.setText(f"Loaded file: {file_path}")
-            self.preview_data(file_path)
 
     def preview_data(self, file_path):
         try:
