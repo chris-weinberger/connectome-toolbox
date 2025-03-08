@@ -2,7 +2,7 @@
 # The GUI will allow users to upload a CSV file, specify columns to aggregate into a region of interest (RSA), and compute RSA on connections to/from specified regions.
 # The results will be displayed in a text area, and a plot will be shown in a separate window.
 from qtpy.QtWidgets import (
-    QWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QTextEdit, QTableWidget,
+    QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QFileDialog, QLineEdit, QTextEdit, QTableWidget,
     QTableWidgetItem, QDialog, QComboBox
 )
 import pandas as pd
@@ -11,7 +11,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 import seaborn as sns
-from analysis import build_corr_matrix, compute_mds  # Assuming this is your analysis function
+from analysis import build_corr_matrix, build_corr_matrix_full, compute_mds  # Assuming this is your analysis function
 
 class DataAnalysisApp(QWidget):
     def __init__(self):
@@ -21,10 +21,30 @@ class DataAnalysisApp(QWidget):
 
         self.layout = QVBoxLayout()
 
+        # Horizontal layout for the buttons
+        hbox_upload_buttons = QHBoxLayout()
+
         self.uploaded_data = None
-        self.upload_button = QPushButton("Upload CSV File")
-        self.upload_button.clicked.connect(self.load_file)
-        self.layout.addWidget(self.upload_button)
+        self.upload_button = QPushButton("*REQUIRED* Upload connection matrix CSV File")
+        self.upload_button.clicked.connect(self.load_data)
+
+        self.uploaded_cols = None
+        self.upload_columns_buttons = QPushButton("*OPTIONAL* Upload ROI column names")
+        self.upload_columns_buttons.clicked.connect(self.load_columns)
+        self.upload_columns_buttons.setEnabled(False) # can't upload columns until data is uploaded
+
+        self.uploaded_division_labels = None
+        self.upload_div_labels_buttons = QPushButton("*OPTIONAL* Upload Major Division Labels")
+        self.upload_div_labels_buttons.clicked.connect(self.load_div_labels)
+        self.upload_div_labels_buttons.setEnabled(False) # can't upload columns until data is uploaded
+
+        # Add buttons to the horizontal layout
+        hbox_upload_buttons.addWidget(self.upload_button)
+        hbox_upload_buttons.addWidget(self.upload_columns_buttons)
+        hbox_upload_buttons.addWidget(self.upload_div_labels_buttons)
+
+        # Add the horizontal layout to the main layout
+        self.layout.addLayout(hbox_upload_buttons)
 
         self.column_input = QLineEdit(self)
         self.column_input.setPlaceholderText("Enter column name(s) separated by commas to aggregate into RSA region")
@@ -64,6 +84,77 @@ class DataAnalysisApp(QWidget):
         self.setLayout(self.layout)
         self.file_path = ""
 
+
+    # IN DEVELOPMENT
+    def load_data(self):
+        """
+        Imports a CSV file into a pandas DataFrame and numbers the rows and columns.
+
+        Args:
+            matrix_csv_path (str): Path to the CSV file containing the matrix data.
+
+        Returns:
+            pandas.DataFrame: A pandas DataFrame containing the matrix data with numbered rows and columns.
+        """
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls)")
+        if file_path:
+            self.file_path = file_path
+            self.result_text.setText(f"Inside load_data, Loaded file: {file_path}")
+
+        df = pd.read_csv(file_path, header=None)  # Read without header
+
+        # Number the rows and columns
+        df.index = range(1, len(df) + 1)  # Number the rows
+        df.columns = range(1, len(df.columns) + 1)  # Number the columns
+
+        # convert to string so we can index
+        df.index = df.index.astype(str)
+        df.columns = df.columns.astype(str)
+
+        self.result_text.setText(f"Loaded matrix data from: {df.index}")
+        self.uploaded_data = df
+
+        preview_df = df.head(10)
+        self.display_table(preview_df)
+        self.upload_columns_buttons.setEnabled(True) # can't upload columns until data is uploaded
+        self.upload_div_labels_buttons.setEnabled(True) # can't upload major divisions until data is uploaded
+        self.table_widget.setVisible(True)
+
+    def load_columns(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls);;Text Files (*.txt)")
+        if file_path:
+            self.file_path = file_path
+            self.result_text.setText(f"Loaded file: {file_path}")
+
+        try:
+            region_names = pd.read_csv(file_path, header=None).to_numpy().flatten()  # Read without header
+            self.uploaded_cols = region_names
+
+            self.result_text.setText(f"Loaded region names: {region_names}")
+
+            self.uploaded_data.index = region_names
+            self.uploaded_data.columns = region_names
+        except Exception as e:
+            self.result_text.setText(f"Error loading column file: {str(e)}")
+        
+        # refresh preview of data
+        preview_df = self.uploaded_data.head(10)
+        self.display_table(preview_df)
+
+    def load_div_labels(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;Excel Files (*.xlsx *.xls);;Text Files (*.txt)")
+        if file_path:
+            self.file_path = file_path
+            self.result_text.setText(f"Loaded file: {file_path}")
+
+        try:
+            major_div_labels = pd.read_csv(file_path, header=None).to_numpy().flatten()  # Read without header
+            self.uploaded_division_labels = major_div_labels
+            self.result_text.setText(f"Loaded major division labels: {major_div_labels}")
+        except Exception as e:
+            self.result_text.setText(f"Error loading major division labels file: {str(e)}")
+        
+
     def metric_dropdown_selection_changed(self, index):
         selected_option = self.metric_dropdown.itemText(index)
         print(f"Selected option: {selected_option}")  # Or do something else with the selection
@@ -99,7 +190,7 @@ class DataAnalysisApp(QWidget):
     def display_table(self, df):
         self.table_widget.setRowCount(df.shape[0])
         self.table_widget.setColumnCount(df.shape[1])
-        self.table_widget.setHorizontalHeaderLabels(df.columns)
+        self.table_widget.setHorizontalHeaderLabels(df.columns.astype(str))
         self.table_widget.setVerticalHeaderLabels(df.index.astype(str))
 
         for row in range(df.shape[0]):
@@ -112,19 +203,25 @@ class DataAnalysisApp(QWidget):
         if not self.file_path:
             self.result_text.setText("Please upload a file first.")
             return
-
-        columns = self.column_input.text().split(",")
-        columns = [col.strip() for col in columns]
-
         try:
-            (to_matrix, from_matrix) = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
-            self.show_plot(to_matrix, from_matrix)
-            self.rsa_data = (to_matrix, from_matrix)
-            self.mds_button.setVisible(True) # Show the MDS button
+            if self.column_input.text() == "":
+                self.rsa_data = build_corr_matrix_full(self.uploaded_data, distance_metric=self.distance_metric)
+                self.show_plot(viz_type='RSA')
+            else:
+                # Split the input text by commas and remove any leading/trailing whitespace
+                columns = self.column_input.text().split(",")
+                columns = [col.strip() for col in columns]
+
+                # define RSA matrices for incoming and outgoing connections
+                self.rsa_data = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
+                self.show_plot(viz_type='RSA')
+                
+                self.mds_button.setVisible(True) # Show the MDS button
 
         except Exception as e:
             self.result_text.setText(f"Error: {str(e)}")
 
+    # only to be run after rsa matrices have been generated
     def run_mds(self):
         self.result_text.setText("Running MDS analysis...")
         to_matrix = self.rsa_data[0]
@@ -136,17 +233,27 @@ class DataAnalysisApp(QWidget):
             self.show_plot(mds_result_to, mds_result_from, 'MDS')
 
         except Exception as e:
-            self.result_text.setText(f"Error in run_mds: {str(e)}")
+            self.result_text.setText(f"Error: {str(e)}")
 
-    def show_plot(self, to_matrix, from_matrix, viz_type='RSA'):
+    def show_plot(self, viz_type='RSA'):
         try:
-            self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, viz_type=viz_type, window_title="To Matrix")
-            self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, viz_type=viz_type, window_title="From Matrix")
+            # if they haven't entered any columns, just run RSA on the full matrix and display that
+            if (self.column_input.text() == ""):
+                rsa_data = self.rsa_data
+                self.plot_window_rsa = PlotWindow(self, display_data=rsa_data, viz_type=viz_type)
+                self.plot_window_rsa.show()
+            else:
+                # get to_matrix and from_matrix from the tuple
+                to_matrix = self.rsa_data[0]
+                from_matrix = self.rsa_data[1]
 
-            self.plot_window_to_plot.show()
-            self.plot_window_from_plot.show()
+                self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, viz_type=viz_type, window_title="To Matrix")
+                self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, viz_type=viz_type, window_title="From Matrix")
+
+                self.plot_window_to_plot.show()
+                self.plot_window_from_plot.show()
         except Exception as e:
-            self.result_text.setText(f"Error in show_plot: {str(e)}")
+            self.result_text.setText(f"Error: {str(e)}")
 
 class PlotWindow(QDialog):
     def __init__(self, parent=None, display_data=None, viz_type='RSA', window_title="Analysis Plot"):
