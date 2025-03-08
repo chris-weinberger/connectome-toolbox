@@ -35,7 +35,7 @@ class DataAnalysisApp(QWidget):
 
         self.uploaded_division_labels = None
         self.upload_div_labels_buttons = QPushButton("*OPTIONAL* Upload Major Division Labels")
-        self.upload_div_labels_buttons.clicked.connect(self.load_columns)
+        self.upload_div_labels_buttons.clicked.connect(self.load_div_labels)
         self.upload_div_labels_buttons.setEnabled(False) # can't upload columns until data is uploaded
 
         # Add buttons to the horizontal layout
@@ -221,6 +221,7 @@ class DataAnalysisApp(QWidget):
         except Exception as e:
             self.result_text.setText(f"Error: {str(e)}")
 
+    # only to be run after rsa matrices have been generated
     def run_mds(self):
         self.result_text.setText("Running MDS analysis...")
         to_matrix = self.rsa_data[0]
