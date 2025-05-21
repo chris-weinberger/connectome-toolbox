@@ -207,7 +207,7 @@ class DataAnalysisApp(QWidget):
                 columns = [col.strip() for col in columns]
 
                 # define RSA matrices for incoming and outgoing connections
-                self.rsa_data = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=3, distance_metric=self.distance_metric)
+                self.rsa_data = build_corr_matrix(self.uploaded_data, columns, filter_flag=True, min_num_connections=1, distance_metric=self.distance_metric)
                 self.show_plot(viz_type='RSA')
                 
                 self.mds_button.setVisible(True) # Show the MDS button
