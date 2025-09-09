@@ -1,0 +1,10 @@
+matplotlib==3.10.5
+opencv-python-headless==4.11.0.86
+PyQt5-sip==12.12.2
+PyQt6-Qt6==6.8.2
+PyQt6_sip==13.10.0
+webencodings==0.5.1
+scikit-learn==1.7.1
+pandas==2.3.2
+QtPy==2.4.3
+numpy==2.2.5

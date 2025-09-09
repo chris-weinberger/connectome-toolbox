@@ -54,6 +54,7 @@ class DataAnalysisApp(QWidget):
         self.distance_metric = "pearson"  # Default value
         self.metric_dropdown = QComboBox()
         self.metric_dropdown.addItems(["pearson", "spearman", "cosine", "braycurtis"])  # Add your options
+
         # Connect to a function when the selection is changed
         self.metric_dropdown.currentIndexChanged.connect(self.metric_dropdown_selection_changed)
         self.layout.addWidget(self.metric_dropdown)
@@ -69,6 +70,14 @@ class DataAnalysisApp(QWidget):
         self.mds_button.clicked.connect(self.run_mds)
         self.layout.addWidget(self.mds_button)
         self.mds_button.setVisible(False)  # Initially hidden
+        self.mds_data = None
+
+        # Initialize the plot window variables
+        self.plot_mds_to_plot = None
+        self.plot_mds_from_plot = None
+        self.plot_window_to_plot = None
+        self.plot_window_from_plot = None
+        self.plot_window_rsa = None
 
         # Table Widget for Data Preview (Initially Hidden)
         self.table_widget = QTableWidget()
@@ -212,8 +221,12 @@ class DataAnalysisApp(QWidget):
                 
                 self.mds_button.setVisible(True) # Show the MDS button
 
-        except Exception as e:
-            self.result_text.setText(f"Error: {str(e)}")
+        except ValueError as ve:
+            self.result_text.setText(f"ValueError: {str(ve)}")
+        except TypeError as te:
+            self.result_text.setText(f"TypeError: {str(te)}")
+        except Exception as e:  # Catch any other unexpected exceptions
+            self.result_text.setText(f"Unexpected error: {str(e)}")
 
     # only to be run after rsa matrices have been generated
     def run_mds(self):
@@ -224,28 +237,44 @@ class DataAnalysisApp(QWidget):
         try:
             mds_result_to = compute_mds(to_matrix)
             mds_result_from = compute_mds(from_matrix)
-            self.show_plot(mds_result_to, mds_result_from, 'MDS')
+            self.mds_data = (mds_result_to, mds_result_from)
+            self.show_plot('MDS')
 
-        except Exception as e:
-            self.result_text.setText(f"Error: {str(e)}")
+        except ValueError as ve:
+            self.result_text.setText(f"ValueError during MDS computation: {str(ve)}")
+        except TypeError as te:
+            self.result_text.setText(f"TypeError during MDS computation: {str(te)}")
+        except RuntimeError as re:
+            self.result_text.setText(f"RuntimeError during MDS computation: {str(re)}")
+        except Exception as e:  # Catch any other unexpected exceptions
+            self.result_text.setText(f"Unexpected error during MDS computation: {str(e)}")
 
     def show_plot(self, viz_type='RSA'):
         try:
-            # if they haven't entered any columns, just run RSA on the full matrix and display that
-            if (self.column_input.text() == ""):
-                rsa_data = self.rsa_data
-                self.plot_window_rsa = PlotWindow(self, display_data=rsa_data, viz_type=viz_type)
-                self.plot_window_rsa.show()
-            else:
-                # get to_matrix and from_matrix from the tuple
-                to_matrix = self.rsa_data[0]
-                from_matrix = self.rsa_data[1]
+            if viz_type == 'MDS' and self.mds_data is not None:
+                to_mds = self.mds_data[0]
+                from_mds = self.mds_data[1]
+                self.plot_mds_to_plot = PlotWindow(self, display_data=to_mds, viz_type=viz_type, window_title="MDS To Matrix")
+                self.plot_mds_from_plot = PlotWindow(self, display_data=from_mds, viz_type=viz_type, window_title="MDS From Matrix")
+                self.plot_mds_to_plot.show()
+                self.plot_mds_from_plot.show()
 
-                self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, viz_type=viz_type, window_title="To Matrix")
-                self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, viz_type=viz_type, window_title="From Matrix")
+            elif viz_type == 'RSA' and self.rsa_data is not None:
+                # if they haven't entered any columns, just run RSA on the full matrix and display that
+                if (self.column_input.text() == ""):
+                    rsa_data = self.rsa_data
+                    self.plot_window_rsa = PlotWindow(self, display_data=rsa_data, viz_type=viz_type)
+                    self.plot_window_rsa.show()
+                else:
+                    # get to_matrix and from_matrix from the tuple
+                    to_matrix = self.rsa_data[0]
+                    from_matrix = self.rsa_data[1]
 
-                self.plot_window_to_plot.show()
-                self.plot_window_from_plot.show()
+                    self.plot_window_to_plot = PlotWindow(self, display_data=to_matrix, viz_type=viz_type, window_title="To Matrix")
+                    self.plot_window_from_plot = PlotWindow(self, display_data=from_matrix, viz_type=viz_type, window_title="From Matrix")
+
+                    self.plot_window_to_plot.show()
+                    self.plot_window_from_plot.show()
         except Exception as e:
             self.result_text.setText(f"Error: {str(e)}")
 
@@ -277,7 +306,6 @@ class PlotWindow(QDialog):
             raise ValueError("Invalid visualization type")
 
     def plot_rsa_data(self):
-
         ax = self.figure.add_subplot(111)  # Create a subplot
         sns.heatmap(self.data, fmt=".2f", cbar=True, square=True, xticklabels=True, yticklabels=True, ax=ax)
         ax.set_title("Representational Dissimilarity in Connectivity Patterns")
